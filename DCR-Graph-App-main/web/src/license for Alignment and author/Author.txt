@@ -1,0 +1,12 @@
+All the files corresponding to the alignment algorithm hence:
+
+init-ts
+
+align.ts
+
+utility.ts
+
+
+and the marked code in type.ts
+
+are authored by Axel Kjeld Fjelrad Christfort and published under the GNU GPL v.3

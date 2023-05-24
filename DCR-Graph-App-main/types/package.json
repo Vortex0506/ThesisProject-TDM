@@ -1,0 +1,11 @@
+{
+    "name": "types",
+    "version": "0.0.1",
+    "private": true,
+    "types": "build/types.d.ts",
+    "main": "build/types.js",
+    "scripts": {
+      "build": "tsc"
+    }
+  }
+  

@@ -1,0 +1,31 @@
+{
+  "name": "electron",
+  "main": "build/main.js",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "dat-swarm-defaults": "^1.0.2",
+    "discovery-swarm": "^6.1.0",
+    "electron": "^12.0.6",
+    "electron-is-dev": "^2.0.0",
+    "get-port": "^5.1.1",
+    "node-ip": "^0.1.2",
+    "types": "0.0.1",
+    "uuid": "^8.3.2"
+  },
+  "scripts": {
+    "start": "tsc && electron . 3000",
+    "startPeer1": "tsc && electron . 3001",
+    "startPeer2": "tsc && electron . 3002",
+    "build": "tsc",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@types/ip": "^1.1.0",
+    "@types/jest": "^26.0.23",
+    "@types/react": "^17.0.4",
+    "jest": "^27.0.4",
+    "ts-jest": "^27.0.3",
+    "typescript": "^4.2.4"
+  }
+}
