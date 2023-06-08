@@ -27,6 +27,7 @@ interface Props {
 }
 
 
+
 const TestUiHeader = ({givenTest, i, show, setShow, deleteTest}: Props) => {
     return(<Main>
         <> Test Num: {i} &nbsp;</>  
@@ -38,9 +39,7 @@ const TestUiHeader = ({givenTest, i, show, setShow, deleteTest}: Props) => {
                                                       <Passing> Pass </Passing>)
 
         }
-
-        
     </Main>)
-}
+}   
 
 export default TestUiHeader

@@ -21,13 +21,12 @@ interface Props {
 
 const TestUiContext = ({givenTest, i, deleteLastContext}: Props) => {
     const cpContext = givenTest.context;
-    const contextAsArray = Array.from(cpContext);
 
     return(<Main>
         <> C:  </>
         <> ( </>
-        {contextAsArray.map((event) => 
-            <> {event.name}  &nbsp;</>
+        {cpContext.map((event) => 
+            <> "{event.name}"  &nbsp;</>
         )}
         <> ) &nbsp; </>
         <button onClick={(e) => deleteLastContext(givenTest.id)}> Delete last event</button>

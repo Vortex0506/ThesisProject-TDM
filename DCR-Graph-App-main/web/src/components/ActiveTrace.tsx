@@ -10,10 +10,10 @@ const Main = styled.div`
     background: grey;
     display: flex;
     flex-direction: row;
-    margin: 2px;
-    width: 20%;
-    right: 50%;
-    top: 3%;
+    width: 74%;
+    left: 0.5%;
+    top: 2%;
+    height: 38%;
 
 `
 
@@ -29,7 +29,7 @@ const ActiveTrace = ({givenTrace}: Props) => {
         <> Trace:  </>
         <> ( </>
         {givenTrace.map((event) => 
-            <> {event.name}  &nbsp;</>
+            <> "{event.name}"  &nbsp;</>
         )}
         <> ) &nbsp; </>
     </Main>)

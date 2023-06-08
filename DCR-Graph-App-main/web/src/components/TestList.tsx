@@ -5,7 +5,7 @@ import TestUi from './TestUi';
 
 const Main = styled.div`
     position: absolute;
-    top: 8%;
+    top: 18%; 
     left: 0%;
     background: black;
     height: 100%;

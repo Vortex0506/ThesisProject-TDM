@@ -37,9 +37,9 @@ const TestUi = ({givenTest, i, deleteTest, deleteLastTrace, deleteLastContext}: 
         <TestUiHeader key={givenTest.id} givenTest={givenTest} i={i} show={testShow} setShow={setTestShow} deleteTest={deleteTest}/>
         {testShow ?
         <div> 
+            <Text1>Polarity: {givenTest.polarity}</Text1>
             <TestUiTrace givenTest={givenTest} i={i} deleteLastTrace={deleteLastTrace} />
             <TestUiContext givenTest={givenTest} i={i} deleteLastContext={deleteLastContext} />
-            <Text1>Polarity: {givenTest.polarity}</Text1>
         </div>
         : null }
         

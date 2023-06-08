@@ -305,13 +305,22 @@ export type DCRGraphPP = DCRGraph & Optimizations;
 export interface Test  {
     readonly id: string;
     trace: UiEvent[];
-    context: Set<UiEvent>; //set 
+    context: UiEvent[]; //has been changed to array for proper saving - still not allowing duplicates
     polarity: string;
     deleted: boolean;
     passes: number; // -1 = default not executed, 0 = false, 1 = true
 }
 
+export interface TestIteration {
+  readonly id: string;
+  oldDCRGraph: DCRGraph|undefined;
+  testArray: Test[];
+}
 
+export interface ObjectToSave {
+  graphUi: any;
+  testArray: Test[];
+}
 
 // ----------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------- CHANGE TYPES -------------------------------------------------

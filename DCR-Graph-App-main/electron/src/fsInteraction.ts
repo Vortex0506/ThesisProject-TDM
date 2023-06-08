@@ -4,7 +4,7 @@ import fs from "fs";
 
 import { saveFile, loadFile } from "./fileManipulation";
 
-import { UiDCRGraph, isUiDCRGraph } from "types";
+import { UiDCRGraph, isUiDCRGraph, ObjectToSave } from "types";
 
 import { APP_GRAPH_PATH, APP_NETWORK_PATH } from "./constants";
 
@@ -25,9 +25,23 @@ export const getGraphFiles = (): Array<string> => {
 export function getGraph(mainWindow: BrowserWindow): Promise<UiDCRGraph> {
   return new Promise( (resolve, reject) => {
     ipcMain.once("graph", (event, msg) => {
-      const graph = JSON.parse(msg);
-      if (isUiDCRGraph(graph)) {
-        resolve(graph);
+      const objecToSave = JSON.parse(msg);
+      if (isUiDCRGraph(objecToSave.graphUi)) {
+        resolve(objecToSave);
+      } else {
+        reject(new Error("Invalid graph received"));
+      }
+    })
+    mainWindow.webContents.send("getGraph");
+  })
+}
+
+export function getObjectToSave(mainWindow: BrowserWindow): Promise<ObjectToSave> {
+  return new Promise( (resolve, reject) => {
+    ipcMain.once("graph", (event, msg) => {
+      const objectToSave = JSON.parse(msg);
+      if (isUiDCRGraph(objectToSave.graphUi)) {
+        resolve(objectToSave);
       } else {
         reject(new Error("Invalid graph received"));
       }
@@ -50,8 +64,9 @@ export const saveAsGraph = async (mainWindow: BrowserWindow) => {
 }
 
 export const saveGraph = async (mainWindow: BrowserWindow, filePath?: string) => {
-  const graph = await getGraph(mainWindow);
-  
+  //change graph to data
+  const objectToSave = await getObjectToSave(mainWindow);
+ 
   const trueFilePath = filePath ? filePath : globalLastFilePath;
 
   // If no filename saved, create dialog
@@ -61,7 +76,7 @@ export const saveGraph = async (mainWindow: BrowserWindow, filePath?: string) =>
   }
 
   try {
-    await saveFile(trueFilePath, graph);
+    await saveFile(trueFilePath, objectToSave);
     addToast(mainWindow, "Graph Saved!", "success");
   } catch (e) {
     console.log(e);
@@ -92,15 +107,16 @@ export const saveLastSearchedFile = async (mainWindow: BrowserWindow, content: s
 }
 
 export const loadSpecific = async (mainWindow: BrowserWindow, filepath: string) => {
-  let graph;
+  let objectToLoad; //change to set data type
   try {
-    graph = await loadFile(filepath);
+    objectToLoad = await loadFile(filepath);
   } catch (e) {
     addToast(mainWindow, "Invalid graph...", "error");
     return
   }
-  if (isUiDCRGraph(graph)) {
-    mainWindow.webContents.send('showGraph', graph);
+  if (isUiDCRGraph(objectToLoad.graphUi)) {
+    //check can be the same but send set
+    mainWindow.webContents.send('showGraph', objectToLoad);
     globalLastFilePath = filepath;
     mainWindow.setTitle(path.basename(filepath).slice(0, -5));
   } else {

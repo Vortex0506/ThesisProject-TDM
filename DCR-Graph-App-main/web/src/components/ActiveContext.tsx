@@ -10,14 +10,14 @@ const Main = styled.div`
     background: grey;
     display: flex;
     flex-direction: row;
-    margin: 2px;
-    width: 20%;
-    right: 28%;
-    top: 3%;
+    width: 74%;
+    left: 0.5%;
+    top: 42%;
+    height: 38%;
 `
 
 interface Props {
-    givenContext: Set<UiEvent>;
+    givenContext: UiEvent[]; 
 }
 
 
@@ -25,13 +25,12 @@ interface Props {
 
 const ActiveContext = ({givenContext}: Props) => {
     const cpContext = givenContext;
-    const contextAsArray = Array.from(cpContext);
 
     return(<Main>
         <> Context:  </>
         <> ( </>
-        {contextAsArray.map((event) => 
-            <> {event.name}  &nbsp;</>
+        {cpContext.map((event) => 
+            <> "{event.name}"  &nbsp;</>
         )}
         <> ) &nbsp; </>
     </Main>)

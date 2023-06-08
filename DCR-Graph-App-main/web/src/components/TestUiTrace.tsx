@@ -12,6 +12,10 @@ const Main = styled.div`
     margin: 2px;
 `
 
+const Element = styled.div` 
+    margin: 1px;
+`
+
 interface Props {
     givenTest: Test;
     i: number;
@@ -28,7 +32,7 @@ const TestUiTrace = ({givenTest, i, deleteLastTrace}: Props) => {
         <> T:  </>
         <> ( </>
         {givenTest.trace.map((event) => 
-            <> {event.name}  &nbsp;</>
+            <> "{event.name}"  &nbsp;</>
         )}
         <> ) &nbsp; </>
         <button onClick={(e) => deleteLastTrace(givenTest.id)}> Delete last event</button>

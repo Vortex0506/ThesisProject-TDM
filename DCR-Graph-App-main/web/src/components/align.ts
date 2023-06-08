@@ -50,6 +50,17 @@ const isEnabled = (event: Event, graph: DCRGraph): boolean => {
       return false;
     }
   }
+
+  for (const cEvent of graph.milestonesFor[event]){
+    //If an event is a milestone for a event and is pending + included
+    // return false 
+    if( 
+      graph.marking.included.has(cEvent) &&
+      graph.marking.pending.has(cEvent)
+    ) {
+      return false;
+    }
+  }
   return true;
 };
 

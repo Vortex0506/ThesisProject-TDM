@@ -2,7 +2,8 @@
 import React, { useEffect } from 'react';
 import { EventUI } from "./EventUI";
 import { Stage, Layer, Rect, Text } from 'react-konva';
-import { Event, UiRelation, RelationType, UiEvent, Identifiable, isUiDCRGraph, State, Change, isRelation, Invite, UiDCRGraph, ActiveUser, DCRGraph, EventMap, Marking, Test, AlignAction } from 'types';
+import { Event, UiRelation, RelationType, UiEvent, Identifiable, isUiDCRGraph, State, Change, 
+  isRelation, Invite, UiDCRGraph, ActiveUser, DCRGraph, EventMap, Marking, Test, AlignAction, TestIteration, ObjectToSave } from 'types';
 import { useToasts } from 'react-toast-notifications'
 import { v4 as uuidv4 } from 'uuid';
 
@@ -21,6 +22,7 @@ import InvitePeerModal from './InvitePeerModal';
 import EventEditModal from "./EventEditModal";
 import ActiveTrace from './ActiveTrace';
 import ActiveContext from './ActiveContext';
+import ActiveTest from './ActiveTest';
 
 import align from './align';
 import { graphToGraphPP, DCRtoLabelDCR } from './utility';
@@ -47,11 +49,12 @@ const Designer = ({ setState, id }: DesignerProps) => {
   //Extension test system
   const [formalDCR, setFormalDCR] = React.useState<DCRGraph>();
   const [activeTrace, setTrace] = React.useState<UiEvent[]>([]);
-  const [activeContext, setContext] = React.useState<Set<UiEvent>>(new Set());
+  const [activeContext, setContext] = React.useState<UiEvent[]>([]);
   const [tests, setTests] = React.useState<Test[]>([]); 
-  const [polarityTest, setPolariy] = React.useState<string>("pos");
+  const [polarityTest, setPolarity] = React.useState<string>("pos");
   const [testsOpen, setTestsOpen] = React.useState<boolean>(false);
-
+  const [lastTestIteration, setTestIteration] = React.useState<TestIteration>();
+  const [formalDCRCreated, setDCRCreated] = React.useState<boolean>(false);
 
 
   var uniqid = require('uniqid');
@@ -81,9 +84,17 @@ const Designer = ({ setState, id }: DesignerProps) => {
         events: events,
         relations: relations
       }
-      window.electron.sendGraph(JSON.stringify(graph));
+      const objectToSave: ObjectToSave = {
+        graphUi: graph,
+        testArray: tests
+      }
+      
+      window.electron.sendGraph(JSON.stringify(objectToSave));
     });
-    window.electron.listenToShowGraph((graph: any) => {
+    window.electron.listenToShowGraph((objectToLoad: ObjectToSave) => {
+      const graph = objectToLoad.graphUi
+      const testArray = objectToLoad.testArray
+
       console.log("Showing graph")
       if (isUiDCRGraph(graph)) {
         setGraphId(graph.id);
@@ -94,13 +105,16 @@ const Designer = ({ setState, id }: DesignerProps) => {
         setIsRelationDrawing(0);
         setSelectedObject(null);
         console.log("GRAPH CREATED");
-        console.log(graph.id);
       }
+      setTests(testArray); 
+      setFormalDCR(undefined);
+      setDCRCreated(false);
+      
     });
     return () => {
       window.electron.clearGraphListeners();
     }
-  }, [events, relations, graphId]);
+  }, [events, relations, graphId, tests]);
 
   const addChange = (changes: Array<{object: UiEvent | UiRelation, removed: boolean}>) => {
     const newChange: Change = {
@@ -114,10 +128,8 @@ const Designer = ({ setState, id }: DesignerProps) => {
         }
       })
     }
-    sendChange(graphId, newChange); //this function comes from the swarm context, but it is still used in the solo editing line 183 (addEvent) ?
+    sendChange(graphId, newChange); 
   }
-
-  //I think all belows is swarm funcitonality  
 
   const applyElemChange = <T extends UiRelation | UiEvent>(arr: Array<T>, removed: boolean, object: T) => {
     // If element doesn't exist create it with the object
@@ -165,9 +177,6 @@ const Designer = ({ setState, id }: DesignerProps) => {
     }
   }, [changes, events, relations, acceptChange, graphId])
 
-  //I think above all swarm context functionality
-  //I think below all local graph editing
-
   const addEvent = (e: any) => {
     let stage = e.target.getStage();
     const event = {
@@ -202,12 +211,12 @@ const Designer = ({ setState, id }: DesignerProps) => {
 
   const removeEvent = (e: any) => {
     const id = e.target.parent.id();
-
+    
     // Remove relations associated with the event.
     const { alteredObjects, eventsCp } = removeEventRelations(id);
     const removedElement = removeElement(eventsCp, id);
     setEvents(eventsCp)
-
+    
     // Add changes (both removed event and relations)
     addChange([...alteredObjects.map((obj) => {
       return {
@@ -654,49 +663,19 @@ const Designer = ({ setState, id }: DesignerProps) => {
     addChange([{object: event, removed: false}]);
   }
 
-//Testing leon: 
-  function testMyShit1(rdict: EventMap){
-    rdict["1"] = new Set<string>(["ein object wird verändertt"])
-  }
-  function testMyShit(){
-    //const cpEvents = [...events];
-    //const eventList = ["Trace:"];
-    //const contextList = ["Context:", "EInEvent"]
-    //cpEvents.map((event)=>{
-    //  eventList.push(event.name)  
-    //})
-    //setTestList(eventList); 
-    //console.log(eventList);
-    //setTestNestedList([[eventList, contextList],[eventList,contextList]]);
-    console.log(activeContext);
-    console.log(activeTrace);
-    console.log(tests);
-
-  }
 
 //Below: Test-System extension
 
-  //refactor, if should be uselss as all sets inilaized in createFormalDCR
-   const getRelationTo = (relDict: EventMap, rel: UiRelation) =>{ 
-    if (relDict[rel.start_event_id] === undefined){
-      relDict[rel.start_event_id] = new Set<string>([rel.end_event_id]);
-    }
-    else {
-      const toAdd = new Set<string>();
-      toAdd.add(rel.end_event_id)
-      toAdd.forEach(relDict[rel.start_event_id].add, relDict[rel.start_event_id]);
-    }
+  const getRelationTo = (relDict: EventMap, rel: UiRelation) =>{ 
+    const toAdd = new Set<string>();
+    toAdd.add(rel.end_event_id)
+    toAdd.forEach(relDict[rel.start_event_id].add, relDict[rel.start_event_id]);
   }
 
   const getRelationFor = (relDict: EventMap, rel: UiRelation) =>{ 
-    if (relDict[rel.end_event_id] === undefined){
-      relDict[rel.end_event_id] = new Set<string>([rel.start_event_id]);
-    }
-    else {
-      const toAdd = new Set<string>();
-      toAdd.add(rel.start_event_id)
-      toAdd.forEach(relDict[rel.end_event_id].add, relDict[rel.end_event_id]);
-    }
+    const toAdd = new Set<string>();
+    toAdd.add(rel.start_event_id)
+    toAdd.forEach(relDict[rel.end_event_id].add, relDict[rel.end_event_id]);
   }
 
   const createFormalDCR = () => {
@@ -776,6 +755,7 @@ const Designer = ({ setState, id }: DesignerProps) => {
     }
 
     setFormalDCR(formalDCRGraph); 
+    setDCRCreated(true);
   }
 
   const addToTrace = (e:any) => {
@@ -794,20 +774,32 @@ const Designer = ({ setState, id }: DesignerProps) => {
   const addToContext = (e:any) => {
     const cpEvents = [...events];
     const event = findElement(cpEvents, e.target.parent.id());
-    const cpActiveContext = new Set(activeContext)
-    setContext(cpActiveContext.add(event)); 
+    if (!(activeContext.includes(event))){
+      setContext([...activeContext,event]); 
+    } 
   }
   const removeFromContext = (e:any) => {
     const id = e.target.parent.id();
-    const cpActiveContext = new Set(activeContext);
-    cpActiveContext.delete(id);
+    const cpActiveContext = [...activeContext];
+    removeElement(cpActiveContext, id);
+    setContext(cpActiveContext);
+  }
+
+  const addAllContext = () => {
+    const cpEvents = [...events];
+    const cpActiveContext = [...activeContext];
+    cpEvents.map((event) => {
+      if (!cpActiveContext.includes(event)){
+        cpActiveContext.push(event);
+      }
+    })
     setContext(cpActiveContext);
   }
 
   const submitTest = () => {
     const cpActiveTrace = [...activeTrace];
-    const cpActiveContext = new Set(activeContext);
-    if (cpActiveTrace.length != 0 && cpActiveContext.size != 0){
+    const cpActiveContext = [...activeContext];
+    if (cpActiveTrace.length != 0 && cpActiveContext.length != 0){
       const finishedTest: Test = {
         id: uniqid('test-'),
         trace: cpActiveTrace,
@@ -819,13 +811,17 @@ const Designer = ({ setState, id }: DesignerProps) => {
       const cpTests= [...tests];
       setTests([...cpTests, finishedTest]);
       setTrace([]);
-      setContext(new Set())
+      setContext([])
     }
   }
 
   const executeTests = () => {
     console.log("Syntactical Checks to be implemented")
-    //logDCR();
+    events.map((event) => {
+      console.log(event.name)
+      console.log(event.id)
+      console.log("--------- ")
+    })
     modelChecking();
   }
 
@@ -834,6 +830,8 @@ const Designer = ({ setState, id }: DesignerProps) => {
       const optFormalGraph = graphToGraphPP(cpFormalDCR as DCRGraph);
       const labeledFormalDCR = DCRtoLabelDCR(optFormalGraph);
 
+      const cpTests = [...tests];
+
       tests.map((test)=>{
 
         const cpTrace: Event[] = [];
@@ -841,7 +839,7 @@ const Designer = ({ setState, id }: DesignerProps) => {
           cpTrace.push(event.id);
         });
 
-        const contextAsArray = Array.from(test.context); 
+        const contextAsArray = test.context;
         const cpContext: Event[] = []; 
         contextAsArray.map((event) => {
           cpContext.push(event.id);
@@ -850,51 +848,58 @@ const Designer = ({ setState, id }: DesignerProps) => {
         const costFunction = (action:AlignAction, target: Event) => {
           switch(action){
             case "consume":
-              console.log("consume  " + target);
               return 0;
             case "model-skip":
-              console.log("model-skip  " + target);
               if(cpContext.includes(target)) {
-                console.log("target in context -> Infinity")
                 return Infinity;
               } else {
                 return 0; 
               }
             case "trace-skip":
-              console.log("trace-skip  " + target);
               return Infinity;
           }
         }
         const allignmentFound = align(cpTrace, labeledFormalDCR, costFunction, 100);
-        
-        //console.log("cost" + allignmentFound.cost);
-        //console.log(allignmentFound.trace.length);
-        //allignmentFound.trace.map((e) => {
-        //  console.log(e);
-        //})
+        console.log(allignmentFound.trace);
+        console.log("------")
+        const isTestId = (testElm : Test) =>  testElm.id == test.id; 
+        const testIndex = cpTests.findIndex(isTestId);
+
+        const updatedTest: Test = {
+          id: test.id,
+          trace: test.trace,
+          context: test.context,
+          polarity: test.polarity,
+          deleted: test.deleted,
+          passes: test.passes
+        }
 
         if(allignmentFound.cost == Infinity){
           if(test.polarity == "pos"){
-            test.passes = 0;
+            updatedTest.passes = 0;
           } else {
-            test.passes = 1; 
+            updatedTest.passes = 1; 
           }
         } else {
           if (test.polarity == "pos"){
-            test.passes = 1;
+            updatedTest.passes = 1;
           }
           else{
-            test.passes = 0;
+            updatedTest.passes = 0;
           }
         }
-
+      
+        cpTests[testIndex] = updatedTest;
       });
+
+      setTests(cpTests);
+
 
   }
 
   const clearActiveTest = () => {
     setTrace([]);
-    setContext(new Set());
+    setContext([]);
   }
 
   const clearAllTest = () => {
@@ -926,84 +931,35 @@ const Designer = ({ setState, id }: DesignerProps) => {
     const cpTests = [...tests]
     const cpTest = findElement(cpTests, idTest);
     const cpContext = cpTest.context;
-    const contextAsArray = Array.from(cpContext);
-    contextAsArray.pop();
-    cpTest.context = new Set(contextAsArray); 
+    cpContext.pop();
+    cpTest.context = cpContext; 
     const indexTest = cpTests.findIndex((elem) => elem.id === idTest);
     removeElement(cpTests, idTest);
     cpTests.splice(indexTest, 0, cpTest)
     setTests([...cpTests]);
   }
 
+  const createOldIteration = () => {
+    const lastIteration: TestIteration = {
+        id: uniqid("testIteration-"),
+        oldDCRGraph: formalDCR,
+        testArray: tests
+      }
+    setTestIteration(lastIteration); 
+  } 
+  
+  
 
-  const logDCR = () =>{
-    const cpEvents = [...events];
-    const cpFormalDCR = formalDCR;
-    const cpRelations = [...relations];
-    cpEvents.map((event) => {
-      console.log("ID:");
-      console.log(event.id);
-      console.log("name:");
-      console.log(event.name);
-      console.log("---------");
-    })
-    //console.log("events formal graph:")
-    //console.log(cpFormalDCR?.events);
-    console.log("marking formal graph:")
-    console.log("pending:")
-    console.log(cpFormalDCR?.marking.pending);
-    console.log("included:")
-    console.log(cpFormalDCR?.marking.included);
-    console.log("executed:")
-    console.log(cpFormalDCR?.marking.executed);
-
-    //console.log("conditionsFor:")
-    //for (const e in cpFormalDCR?.conditionsFor){
-    //  console.log(e)
-    //}
-    //console.log("relations:")
-    //cpRelations.map((relation) => {
-    //  console.log(relation.start_event_id);
-    //  console.log(relation.end_event_id);
-    //  console.log(relation.id);
-    //})
-    //console.log("relations formal graph")
-    //cpEvents.map((event) => {
-    //  console.log("relation for event:")
-    //  console.log(event.id)
-    //  console.log("ConditionFor:")
-    //  console.log(cpFormalDCR?.conditionsFor[event.id])
-    //  console.log("MilestoneFor:")
-    //  console.log(cpFormalDCR?.milestonesFor[event.id])
-    //  console.log("ResponseTo:")
-    //  console.log(cpFormalDCR?.responseTo[event.id])
-    //})
-
-  }
-
-
-  //<button onClick={clearAllTest}> Clear all Tests</button>
-  //<button onClick={testMyShit}> TestThings</button>
-  //<br />
-  //<button onClick={createFormalDCR}> create formal DCR</button>
-  //     <button onClick={logDCR}> log formal DCR</button>
-  //<button onClick={createFormalDCR}> create formal DCR</button>
-  //<br />
-  //<button onClick={logDCR}> log formal DCR</button>
+  //<input type="radio" name="polarityTest" value="pos" onChange={e=> setPolarity(e.target.value)} /> Positive-Test
+  //<input type="radio" name="polarityTest" value="neg" onChange={e=> setPolarity(e.target.value)} /> Negative-Test
 
   return (
     <div>
       <BackButton onClick={() => setState("LandingPage")} />
       <InviteButton onClick={() => openInviteModal()} />
       
-      <ActiveTrace givenTrace={activeTrace}/>
-      <ActiveContext givenContext={activeContext}/>
-      
-      <button onClick={submitTest}> Submit Test</button>
-      <button onClick={clearActiveTest}> Clear active Test</button>
-      
-      <input type="radio" name="polarityTest" value="pos" onChange={e=> setPolariy(e.target.value)} /> Positive-Test
-      <input type="radio" name="polarityTest" value="neg" onChange={e=> setPolariy(e.target.value)} /> Negative-Test
+    
+
       <ContextMenuTrigger id="contextmenu" holdToDisplay={-1}>
         <Stage width={window.innerWidth} height={window.innerHeight}
           onMouseUp={handleMouseUp}
@@ -1050,7 +1006,17 @@ const Designer = ({ setState, id }: DesignerProps) => {
             })}
           </Layer>
         </Stage>
+        <ActiveTest 
+          givenContext={activeContext} 
+          givenTrace={activeTrace} 
+          polarity={polarityTest}
+          setPolarity={setPolarity} 
+          addAllContext={addAllContext} 
+          submitTest={submitTest} 
+          clearActiveTest={clearActiveTest}
+        /> 
         <TestBar 
+          formalDCRCreated={formalDCRCreated}
           open={testsOpen} 
           setOpen={setTestsOpen} 
           tests={tests} 
@@ -1059,6 +1025,7 @@ const Designer = ({ setState, id }: DesignerProps) => {
           deleteLastContext={deleteLastContext} 
           executeTests={executeTests} 
           createFormalDCR={createFormalDCR}
+          createOldIteration={createOldIteration}
         />
       </ContextMenuTrigger>
       <DesignerContextMenu
@@ -1090,85 +1057,3 @@ const Designer = ({ setState, id }: DesignerProps) => {
 };
 
 export default Designer;
-
-//  function getEventAndMarking(){
-//    const cpEvents = [...events];
-//
-//    const eventSet = new Set<string>();
-//
-//    const pendingSet = new Set<string>();
-//    const includedSet = new Set<string>();
-//    const executedSet = new Set<string>();
-//
-//    cpEvents.map((event) => {
-//      eventSet.add(event.id)
-//      if (event.is_executed === true){
-//        executedSet.add(event.id);
-//      }
-//      if (event.is_pending === true){
-//        pendingSet.add(event.id);
-//      }
-//      if (event.is_excluded ===false){ //is enabled=included?! I chose to go with, if smth is not exlcued, it is included by default
-//        includedSet.add(event.id);
-//      }
-//    })
-//    const newMarking: Marking = {
-//      pending: pendingSet,
-//      included: includedSet,
-//      executed: executedSet
-//    }
-//    return [eventSet, newMarking]
-//  } //Would prefer calling this function in createFormal DCR, but cant fix return types for 
-
-//function createRelations(){
-//  const cpRelations = [...relations];
-//  const newConditionsFor: RelationDict = {};
-//  const newMilestonesFor: RelationDict = {}
-//  const newResponseTo: RelationDict = {}
-//  const newIncludesTo: RelationDict = {}
-//  const newExcludesTo: RelationDict = {}
-//
-//  cpRelations.map((relation) => {
-//    if (relation.type === "conditionsFor"){
-//      if(newConditionsFor[relation.start_event_id] === undefined){
-//        newConditionsFor[relation.start_event_id] = new Set<string>([relation.id])
-//      } 
-//      else {
-//        const toAddCond = new Set<string> ()
-//        toAddCond.add(relation.id)
-//        toAddCond.forEach(newConditionsFor[relation.start_event_id].add, newConditionsFor[relation.start_event_id]) 
-//      }
-//    //to be tested, might be that the set we call .forEach on is not instansiated yet
-//    //desired functionality: we take the existing set/dict for the event ID and merge them with the new relation to be aded
-//    //https://stackoverflow.com/questions/32000865/simplest-way-to-merge-es6-maps-sets
-//    //https://livecodestream.dev/post/everything-you-should-know-about-javascript-dictionaries/
-//    } 
-//    else if (relation.type === "milestonesFor"){
-//      const toAddMile = new Set<string> ()
-//      toAddMile.add(relation.id)
-//      newConditionsFor[relation.start_event_id].forEach(toAddMile.add, toAddMile)
-//    }
-//    else if(relation.type === "responseTo"){
-//      const toAddResp = new Set<string> ()
-//      toAddResp.add(relation.id)
-//      newConditionsFor[relation.start_event_id].forEach(toAddResp.add, toAddResp)
-//    } 
-//    else if(relation.type === "includesTo"){
-//      const toAddInc = new Set<string> ()
-//      toAddInc.add(relation.id)
-//      newConditionsFor[relation.start_event_id].forEach(toAddInc.add, toAddInc)
-//    }
-//    else if (relation.type === "excludesTo"){
-//      const toAddEx = new Set<string> ()
-//      toAddEx.add(relation.id)
-//      newConditionsFor[relation.start_event_id].forEach(toAddEx.add, toAddEx)
-//    } //Consider refactoring: helper function, same code each case. Pro: less duplicate code, Con: relation get passed
-//
-//    //when giving a objet as input, and we change this object in function, are the object changes kept in the original object
-//    //Considering to have this if else statments in the formal DCR-graph function, calling helper function (duplicate code)
-//    //and assigning the dict to the corresponding field.
-//    //For marking and Event, we can merge into one mapping and then return touple.
-//    //Where we refer to eaech of the return values when assigning field for formal dcr graph.
-//  })  
-//
-//}
